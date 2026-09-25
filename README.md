@@ -4,9 +4,11 @@ This project demonstrates an end-to-end Azure data engineering built using **Azu
 
 ## 🚀 Project Overview
 
-The pipeline uses Azure Data Factory to ingest NYC TLC Trip Record Data from the **'https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page'** into the Bronze layer of ADLS Gen2 in Parquet format.
+The pipeline uses **Azure Data Factory** to ingest NYC TLC Trip Record Data from **'https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page'** into the Bronze layer of ADLS Gen2 in Parquet format.
 
-The project processes Green Taxi Trip Record data from 2016 to 2025. From the ingested data, the 2025 dataset is selected for processing using Azure Databricks, where the data is cleaned, transformed, and organized into the Silver and Gold layers.
+The project processes Green Taxi Trip Record data from 2016 to 2025. The source configuration includes CSV files containing the required data and a JSON file containing the information used to dynamically load the datasets. Azure Data Factory uses this configuration to dynamically process the available source data and ingest it into the Bronze layer.
+
+From the ingested data, the 2025 dataset is selected for processing using Azure Databricks, where the data is cleaned, transformed, and organized into the Silver and Gold layers.
 
 The project follows the Medallion Architecture, separating raw, cleaned, and business-ready data into Bronze, Silver, and Gold layers.
 
