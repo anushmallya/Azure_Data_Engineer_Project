@@ -1,0 +1,21 @@
+{
+	"name": "empty_json_lookup",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "adeprojectstorageaccount_ADF_Link",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "empty.json",
+				"folderPath": "monitor",
+				"fileSystem": "bronze"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

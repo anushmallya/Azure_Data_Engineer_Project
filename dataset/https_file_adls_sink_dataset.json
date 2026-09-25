@@ -1,0 +1,29 @@
+{
+	"name": "https_file_adls_sink_dataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "adeprojectstorageaccount_ADF_Link",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"p_year": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "trips_@{dataset().p_year}",
+					"type": "Expression"
+				},
+				"fileSystem": "bronze"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
