@@ -1,0 +1,414 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "ADE-Project-Data-Factory"
+		},
+		"adeprojectstorageaccount_ADF_Link_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'adeprojectstorageaccount_ADF_Link'"
+		},
+		"HttpServer_ADF_Link_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://d37ci6vzurychx.cloudfront.net"
+		},
+		"adeprojectstorageaccount_ADF_Link_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adeprojectstorageaccount.dfs.core.windows.net/"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/ADE_Score_Bronze_Pipeline')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup1').output.firstRow.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Execute Pipeline1",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "ADE_linked_pipeline",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"month": {
+												"value": "@item().month",
+												"type": "Expression"
+											},
+											"year": {
+												"value": "@item().year",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "JsonSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "JsonReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "empty_json_lookup",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-09-25T10:44:04Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/empty_json_lookup')]",
+				"[concat(variables('factoryId'), '/pipelines/ADE_linked_pipeline')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ADE_linked_pipeline')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.month",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Copy_https_to_adls",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "HttpReadSettings",
+												"requestMethod": "GET"
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "https_parquet_file_detaset",
+											"type": "DatasetReference",
+											"parameters": {
+												"p_month": {
+													"value": "@if(greater(add(item(),1),9),string(add(item(),1)),concat('0',string(add(item(),1))))",
+													"type": "Expression"
+												},
+												"p_year": {
+													"value": "@pipeline().parameters.year",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "https_file_adls_sink_dataset",
+											"type": "DatasetReference",
+											"parameters": {
+												"p_year": {
+													"value": "@pipeline().parameters.year",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Copy_https_to_adls",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(activity('Copy_https_to_adls').output.dataRead,0)",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Delete1",
+												"type": "Delete",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"dataset": {
+														"referenceName": "https_file_adls_sink_dataset",
+														"type": "DatasetReference",
+														"parameters": {
+															"p_year": {
+																"value": "@pipeline().parameters.year",
+																"type": "Expression"
+															}
+														}
+													},
+													"enableLogging": false,
+													"storeSettings": {
+														"type": "AzureBlobFSReadSettings",
+														"recursive": true,
+														"enablePartitionDiscovery": false
+													}
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"month": {
+						"type": "array"
+					},
+					"year": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-09-25T07:02:57Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/https_parquet_file_detaset')]",
+				"[concat(variables('factoryId'), '/datasets/https_file_adls_sink_dataset')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/empty_json_lookup')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "adeprojectstorageaccount_ADF_Link",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "empty.json",
+						"folderPath": "monitor",
+						"fileSystem": "bronze"
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/adeprojectstorageaccount_ADF_Link')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/https_file_adls_sink_dataset')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "adeprojectstorageaccount_ADF_Link",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_year": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "trips_@{dataset().p_year}",
+							"type": "Expression"
+						},
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/adeprojectstorageaccount_ADF_Link')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/https_parquet_file_detaset')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "HttpServer_ADF_Link",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_month": {
+						"type": "string"
+					},
+					"p_year": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation",
+						"relativeUrl": {
+							"value": "trip-data/green_tripdata_@{dataset().p_year}-@{dataset().p_month}.parquet",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/HttpServer_ADF_Link')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/HttpServer_ADF_Link')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "HttpServer",
+				"typeProperties": {
+					"url": "[parameters('HttpServer_ADF_Link_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "Anonymous"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/adeprojectstorageaccount_ADF_Link')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('adeprojectstorageaccount_ADF_Link_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('adeprojectstorageaccount_ADF_Link_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
