@@ -1,5 +1,5 @@
 {
-	"name": "ADE_Score_Bronze_Pipeline",
+	"name": "ADE_Source_Bronze_Pipeline",
 	"properties": {
 		"activities": [
 			{
